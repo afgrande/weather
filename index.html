@@ -5,27 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hourly Weather</title>
 <style>
-  :root { --fg:#37352f; --muted:#9b9a97; --rain:#2f80ed; --pill:rgba(55,53,47,.08); --pillOn:#fff; --shadow:0 1px 2px rgba(0,0,0,.12); }
-  @media (prefers-color-scheme: dark) {
-    :root { --fg:#e6e6e4; --muted:#8a8a87; --rain:#5aa3ff; --pill:rgba(255,255,255,.08); --pillOn:rgba(255,255,255,.16); --shadow:none; }
-  }
+  /* Fixed light palette so text stays readable on the #F9ECE0 fill in light and dark mode */
+  :root { --fg:#37352f; --muted:#8c7d70; --rain:#2f80ed; --fill:#F9ECE0; --pill:rgba(55,53,47,.08); --pillOn:#fff; --shadow:0 1px 2px rgba(0,0,0,.12); }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body {
     background:transparent; color:var(--fg);
     font-family:Lyon-Text, Georgia, ui-serif, "Times New Roman", serif;
     -webkit-font-smoothing:antialiased;
   }
-  .w { padding:16px 20px; max-width:420px; }
-  .toggle { display:inline-flex; background:var(--pill); border-radius:999px; padding:3px; margin-bottom:14px; }
-  .toggle button { border:0; background:transparent; color:var(--muted); font:inherit; font-size:13px; font-weight:600; padding:5px 14px; border-radius:999px; cursor:pointer; }
-  .toggle button.on { background:var(--pillOn); color:var(--fg); box-shadow:var(--shadow); }
-  .top { display:flex; justify-content:space-between; align-items:flex-start; }
+  .w { padding:16px 20px; background:var(--fill); border-radius:10px; border:0; }
+  .head { display:flex; justify-content:space-between; align-items:center; }
   .place { font-size:22px; font-weight:600; letter-spacing:-.01em; }
-  .now { font-size:64px; font-weight:300; line-height:1; margin-top:6px; letter-spacing:-.03em; }
-  .cond { display:flex; flex-direction:column; align-items:flex-end; gap:8px; font-size:15px; font-weight:500; padding-top:2px; text-align:right; }
-  .cond svg { width:30px; height:30px; margin-bottom:6px; }
+  .toggle { display:inline-flex; gap:10px; }
+  .toggle button { border:0; background:transparent; color:var(--muted); padding:0; cursor:pointer; line-height:0; }
+  .toggle button svg { width:18px; height:18px; }
+  .toggle button.on { color:#CC792F; }
+  .top { display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px; }
+  .now { font-size:44px; font-weight:300; line-height:1; letter-spacing:-.02em; }
+  .cond { display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-size:15px; font-weight:500; text-align:right; }
+  .cond svg { width:28px; height:28px; }
   .cond .p { font-size:13px; }
   .grid { display:grid; grid-template-columns:repeat(5, 1fr); row-gap:18px; margin-top:24px; }
+  /* Hairline marking where tomorrow begins */
+  .rule { grid-column:1 / -1; height:1px; background:rgba(55,53,47,.2); margin:-8px 0; }
+  .h.split { border-left:1px solid rgba(55,53,47,.2); }
   .h { display:flex; flex-direction:column; align-items:center; gap:7px; }
   .t { font-size:13px; color:var(--muted); font-weight:500; white-space:nowrap; }
   .h svg { width:22px; height:22px; }
@@ -36,16 +39,19 @@
 </head>
 <body>
 <div class="w">
-  <div class="toggle" role="tablist">
-    <button data-loc="home">Home</button>
-    <button data-loc="work">Work</button>
+  <div class="head">
+    <div class="place" id="place"></div>
+    <div class="toggle" role="tablist">
+      <button data-loc="home" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" fill="currentColor"><path stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" d="M12 2.5 2 10.3V21h7.5v-6h5v6H22V10.3z"/></svg></button>
+      <button data-loc="work" aria-label="Work" title="Work"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7h-2V5.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V7z"/><rect x="2" y="7" width="20" height="13" rx="2.5"/></svg></button>
+    </div>
   </div>
   <div id="app" class="msg">Loading weather…</div>
 </div>
 <script>
   const LOCS = {
-    home: { name: "Hudson Yards",       lat: 40.7537, lon: -74.0016 }, // postcode 10001
-    work: { name: "World Trade Center", lat: 40.7127, lon: -74.0134 }
+    home: { name: "Hudson Yards", lat: 40.7537, lon: -74.0016 }, // Hudson Yards, postcode 10001
+    work: { name: "WTC", lat: 40.7127, lon: -74.0134 }  // World Trade Center
   };
   const LAST_HOUR = 22;  // show at least through 10 PM
   const COLS = 5;        // icons per row
@@ -107,6 +113,7 @@
   function setToggle() {
     document.querySelectorAll(".toggle button").forEach(btn =>
       btn.classList.toggle("on", btn.dataset.loc === loc));
+    document.getElementById("place").textContent = LOCS[loc].name;
   }
 
   async function load() {
@@ -116,7 +123,7 @@
       + "?latitude=" + L.lat + "&longitude=" + L.lon
       + "&current=temperature_2m,weather_code,is_day"
       + "&hourly=temperature_2m,weather_code,precipitation_probability,is_day"
-      + "&temperature_unit=celsius&timezone=America%2FNew_York&forecast_days=2";
+      + "&temperature_unit=celsius&timezone=America%2FNew_York&forecast_days=3";
     try {
       const res = await fetch(api);
       if (!res.ok) throw new Error(res.status);
@@ -124,31 +131,52 @@
       const c = d.current, H = d.hourly;
       const today = c.time.slice(0, 10);
       const nowIdx = H.time.findIndex(t => t.slice(0, 13) === c.time.slice(0, 13));
-      const start = nowIdx + 1;
+      // Count hours from index `from` through 10 PM on that same day.
+      const untilLast = from => {
+        const day = H.time[from] ? H.time[from].slice(0, 10) : "";
+        let k = 0;
+        for (let i = from; i < H.time.length; i++) {
+          if (H.time[i].slice(0, 10) !== day || +H.time[i].slice(11, 13) > LAST_HOUR) break;
+          k++;
+        }
+        return k;
+      };
 
-      // Hours left until 10 PM today, then rounded up to fill complete rows of 5.
-      let n = 0;
-      for (let i = start; i < H.time.length; i++) {
-        if (H.time[i].slice(0, 10) !== today || +H.time[i].slice(11, 13) > LAST_HOUR) break;
-        n++;
+      const start = nowIdx + 1;
+      const left = H.time[start] && H.time[start].slice(0, 10) === today ? untilLast(start) : 0;
+      let idx = [];
+      let split = -1; // position in idx where tomorrow begins
+
+      if (left > COLS) {
+        // Normal: through 10 PM, rounded up to fill complete rows of 5.
+        let n = Math.ceil(left / COLS) * COLS;
+        for (let i = start; i < Math.min(start + n, H.time.length); i++) idx.push(i);
+      } else {
+        // One row or less left: today's remaining hours, then tomorrow from 5 AM to fill two rows.
+        for (let i = start; i < start + left; i++) idx.push(i);
+        const morning = H.time.findIndex(t => t.slice(0, 10) > today && t.slice(11, 13) === "05");
+        split = idx.length;
+        for (let i = morning; idx.length < COLS * 2 && i < H.time.length; i++) idx.push(i);
       }
-      n = Math.max(COLS, Math.ceil(n / COLS) * COLS);
-      n = Math.min(n, Math.floor((H.time.length - start) / COLS) * COLS);
 
       let cells = "";
-      for (let i = start; i < start + n; i++) {
+      idx.forEach((i, j) => {
+        let cls = "h";
+        if (j === split) {
+          if (j % COLS === 0) cells += '<div class="rule"></div>'; // tomorrow starts a new row
+          else cls += " split";                                      // tomorrow starts mid-row
+        }
         const p = H.precipitation_probability[i];
-        cells += '<div class="h"><div class="t">' + hourLabel(H.time[i]) + '</div>'
+        cells += '<div class="' + cls + '"><div class="t">' + hourLabel(H.time[i]) + '</div>'
           + svg(kind(H.weather_code[i], H.is_day[i]))
           + '<div class="d">' + Math.round(H.temperature_2m[i]) + '°</div>'
           + '<div class="p">' + (p > 0 ? p + '%' : '') + '</div></div>';
-      }
+      });
 
       const pNow = H.precipitation_probability[nowIdx];
       app.className = "";
       app.innerHTML =
-        '<div class="top"><div><div class="place">' + L.name + '</div>'
-        + '<div class="now">' + Math.round(c.temperature_2m) + '°</div></div>'
+        '<div class="top"><div class="now">' + Math.round(c.temperature_2m) + '°</div>'
         + '<div class="cond">' + svg(kind(c.weather_code, c.is_day))
         + '<div>' + (LABEL[c.weather_code] || "") + '</div>'
         + (pNow > 0 ? '<div class="p">' + pNow + '% chance of precipitation</div>' : '')
