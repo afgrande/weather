@@ -167,7 +167,7 @@
         }
         const p = H.precipitation_probability[i];
         cells += '<div class="' + cls + '"><div class="t">' + hourLabel(H.time[i]) + '</div>'
-          + svg(kind(H.weather_code[i], H.is_day[i]))
+          + solid(kind(H.weather_code[i], H.is_day[i]))
           + '<div class="d">' + Math.round(H.temperature_2m[i]) + '°</div>'
           + '<div class="p">' + (p > 0 ? p + '%' : '') + '</div></div>';
       });
