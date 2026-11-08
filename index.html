@@ -6,7 +6,7 @@
 <title>Hourly Weather</title>
 <style>
   /* Fixed light palette so text stays readable on the #F9ECE0 fill in light and dark mode */
-  :root { --fg:#37352f; --muted:#8c7d70; --rain:#2f80ed; --fill:#F9ECE0; --pill:rgba(55,53,47,.08); --pillOn:#fff; --shadow:0 1px 2px rgba(0,0,0,.12); }
+  :root { --fg:#37352f; --muted:#8c7d70; --rain:#2f80ed; --fill:#F9ECE0; --accent:#CC792F; }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body {
     background:transparent; color:var(--fg);
@@ -14,52 +14,39 @@
     -webkit-font-smoothing:antialiased;
   }
   .w { padding:16px 20px; background:var(--fill); border-radius:10px; border:0; }
-  .head { display:flex; justify-content:space-between; align-items:center; }
-  .place { font-size:22px; font-weight:600; letter-spacing:-.01em; }
-  .toggle { display:inline-flex; gap:10px; }
-  .toggle button { border:0; background:transparent; color:var(--muted); padding:0; cursor:pointer; line-height:0; }
-  .toggle button svg { width:18px; height:18px; }
-  .toggle button.on { color:#CC792F; }
-  .top { display:flex; justify-content:space-between; align-items:flex-end; margin-top:8px; }
-  .now { font-size:44px; font-weight:300; line-height:1; letter-spacing:-.02em; }
-  .cond { display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-size:15px; font-weight:500; text-align:right; }
-  .cond svg { width:28px; height:28px; }
-  .cond .p { font-size:13px; }
-  .grid { display:grid; grid-template-columns:repeat(5, 1fr); row-gap:18px; margin-top:24px; }
+  .head { display:flex; align-items:center; gap:10px; font-size:20px; font-weight:600; letter-spacing:-.01em; }
+  .head .ico { color:var(--accent); line-height:0; }
+  .head .ico svg { width:24px; height:24px; }
+  .head .hp { font-size:14px; color:var(--rain); font-weight:600; }
+  .grid { display:grid; grid-template-columns:repeat(5, 1fr); row-gap:18px; margin-top:20px; }
   /* Hairline marking where tomorrow begins */
   .rule { grid-column:1 / -1; height:1px; background:rgba(55,53,47,.2); margin:-8px 0; }
-  .h.split { border-left:1px solid rgba(55,53,47,.2); }
   .h { display:flex; flex-direction:column; align-items:center; gap:7px; }
+  .h.split { border-left:1px solid rgba(55,53,47,.2); }
   .t { font-size:13px; color:var(--muted); font-weight:500; white-space:nowrap; }
   .h svg { width:22px; height:22px; }
   .d { font-size:16px; font-weight:600; }
   .p { font-size:11px; color:var(--rain); font-weight:600; min-height:13px; }
-  .msg { color:var(--muted); font-size:13px; margin-top:16px; }
+  .msg { color:var(--muted); font-size:13px; }
 </style>
 </head>
 <body>
 <div class="w">
-  <div class="head">
-    <div class="place" id="place"></div>
-    <div class="toggle" role="tablist">
-      <button data-loc="home" aria-label="Home" title="Home"><svg viewBox="0 0 24 24" fill="currentColor"><path stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" d="M12 2.5 2 10.3V21h7.5v-6h5v6H22V10.3z"/></svg></button>
-      <button data-loc="work" aria-label="Work" title="Work"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7h-2V5.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V7z"/><rect x="2" y="7" width="20" height="13" rx="2.5"/></svg></button>
-    </div>
-  </div>
   <div id="app" class="msg">Loading weather…</div>
 </div>
 <script>
-  const LOCS = {
-    home: { name: "Hudson Yards", lat: 40.7537, lon: -74.0016 }, // Hudson Yards, postcode 10001
-    work: { name: "WTC", lat: 40.7127, lon: -74.0134 }  // World Trade Center
-  };
+  // Hudson Yards, postcode 10001
+  const LAT = 40.7537, LON = -74.0016;
   const LAST_HOUR = 22;  // show at least through 10 PM
-  const COLS = 5;        // icons per row
+  const COLS = 5;        // tiles per row
 
-  let loc = "home";
-  try { if (LOCS[localStorage.getItem("wx-loc")]) loc = localStorage.getItem("wx-loc"); } catch (e) {}
+  const API = "https://api.open-meteo.com/v1/forecast"
+    + "?latitude=" + LAT + "&longitude=" + LON
+    + "&current=temperature_2m,weather_code,is_day"
+    + "&hourly=temperature_2m,weather_code,precipitation_probability,is_day"
+    + "&temperature_unit=celsius&timezone=America%2FNew_York&forecast_days=3";
 
-  const LABEL = {0:"Clear",1:"Mainly Clear",2:"Partly Cloudy",3:"Overcast",45:"Fog",48:"Fog",
+  const LABEL = {0:"Clear",1:"Mostly Clear",2:"Partly Cloudy",3:"Overcast",45:"Fog",48:"Fog",
     51:"Light Drizzle",53:"Drizzle",55:"Heavy Drizzle",56:"Freezing Drizzle",57:"Freezing Drizzle",
     61:"Light Rain",63:"Rain",65:"Heavy Rain",66:"Freezing Rain",67:"Freezing Rain",
     71:"Light Snow",73:"Snow",75:"Heavy Snow",77:"Snow",80:"Showers",81:"Showers",82:"Heavy Showers",
@@ -84,10 +71,14 @@
     }).join("");
   }
 
-  const CLOUD = '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>';
-  const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-  const NS = s => s.replace("<path", '<path vector-effect="non-scaling-stroke"');
+  const CLOUD_D = "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z";
+  const MOON_D = "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z";
   const ALL = [0,45,90,135,180,225,270,315];
+
+  // ---- Line icons for the hourly tiles ----
+  const CLOUD = '<path d="' + CLOUD_D + '"/>';
+  const MOON = '<path d="' + MOON_D + '"/>';
+  const NS = s => s.replace("<path", '<path vector-effect="non-scaling-stroke"');
 
   function svg(k) {
     let b = "";
@@ -105,32 +96,40 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + b + '</svg>';
   }
 
+  // ---- Solid icons for the heading ----
+  // A cloud outlined in the background colour, so it sits cleanly in front of a sun or moon.
+  const cutCloud = (tf) => '<g transform="' + tf + '"><path d="' + CLOUD_D + '" stroke="#F9ECE0" stroke-width="2.5" vector-effect="non-scaling-stroke" paint-order="stroke"/></g>';
+  const smallCloud = '<g transform="translate(2.4 -1.5) scale(.8)"><path d="' + CLOUD_D + '"/></g>';
+
+  function solid(k) {
+    let b = "";
+    if (k === "sun") b = '<circle cx="12" cy="12" r="5"/><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' + rays(12,12,7.5,9.5,ALL) + '</g>';
+    else if (k === "moon") b = '<path d="' + MOON_D + '"/>';
+    else if (k === "cloud") b = '<path d="' + CLOUD_D + '"/>';
+    else if (k === "partly") b = '<circle cx="16" cy="8" r="3.4"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round">' + rays(16,8,5.2,6.8,[225,270,315,0,45]) + '</g>' + cutCloud("translate(0 5) scale(.78)");
+    else if (k === "partlyNight") b = '<g transform="translate(10.5 0) scale(.55)"><path d="' + MOON_D + '"/></g>' + cutCloud("translate(0 5) scale(.78)");
+    else if (k === "rain") b = smallCloud + '<g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="8" y1="17.5" x2="7" y2="21.5"/><line x1="12.5" y1="17.5" x2="11.5" y2="21.5"/><line x1="17" y1="17.5" x2="16" y2="21.5"/></g>';
+    else if (k === "snow") b = smallCloud + '<circle cx="8" cy="19" r="1.4"/><circle cx="12.5" cy="21" r="1.4"/><circle cx="17" cy="19" r="1.4"/>';
+    else if (k === "storm") b = smallCloud + '<polygon points="13.5 13.5 9 19.5 12 19.5 10.5 23.5 16 17 13 17 14.5 13.5"/>';
+    else if (k === "fog") b = '<g stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"/><line x1="2.5" y1="12.5" x2="21.5" y2="12.5"/><line x1="5" y1="17" x2="19" y2="17"/></g>';
+    return '<svg viewBox="0 0 24 24" fill="currentColor">' + b + '</svg>';
+  }
+
   function hourLabel(t) {
     const h = +t.slice(11, 13);
     return (h % 12 || 12) + (h < 12 ? "AM" : "PM");
   }
 
-  function setToggle() {
-    document.querySelectorAll(".toggle button").forEach(btn =>
-      btn.classList.toggle("on", btn.dataset.loc === loc));
-    document.getElementById("place").textContent = LOCS[loc].name;
-  }
-
   async function load() {
     const app = document.getElementById("app");
-    const L = LOCS[loc];
-    const api = "https://api.open-meteo.com/v1/forecast"
-      + "?latitude=" + L.lat + "&longitude=" + L.lon
-      + "&current=temperature_2m,weather_code,is_day"
-      + "&hourly=temperature_2m,weather_code,precipitation_probability,is_day"
-      + "&temperature_unit=celsius&timezone=America%2FNew_York&forecast_days=3";
     try {
-      const res = await fetch(api);
+      const res = await fetch(API);
       if (!res.ok) throw new Error(res.status);
       const d = await res.json();
       const c = d.current, H = d.hourly;
       const today = c.time.slice(0, 10);
       const nowIdx = H.time.findIndex(t => t.slice(0, 13) === c.time.slice(0, 13));
+
       // Count hours from index `from` through 10 PM on that same day.
       const untilLast = from => {
         const day = H.time[from] ? H.time[from].slice(0, 10) : "";
@@ -149,7 +148,7 @@
 
       if (left > COLS) {
         // Normal: through 10 PM, rounded up to fill complete rows of 5.
-        let n = Math.ceil(left / COLS) * COLS;
+        const n = Math.ceil(left / COLS) * COLS;
         for (let i = start; i < Math.min(start + n, H.time.length); i++) idx.push(i);
       } else {
         // One row or less left: today's remaining hours, then tomorrow from 5 AM to fill two rows.
@@ -176,11 +175,10 @@
       const pNow = H.precipitation_probability[nowIdx];
       app.className = "";
       app.innerHTML =
-        '<div class="top"><div class="now">' + Math.round(c.temperature_2m) + '°</div>'
-        + '<div class="cond">' + svg(kind(c.weather_code, c.is_day))
-        + '<div>' + (LABEL[c.weather_code] || "") + '</div>'
-        + (pNow > 0 ? '<div class="p">' + pNow + '% chance of precipitation</div>' : '')
-        + '</div></div>'
+        '<div class="head"><span class="ico">' + solid(kind(c.weather_code, c.is_day)) + '</span>'
+        + '<span>' + Math.round(c.temperature_2m) + '° ' + (LABEL[c.weather_code] || "") + '</span>'
+        + (pNow > 0 ? '<span class="hp">' + pNow + '%</span>' : '')
+        + '</div>'
         + '<div class="grid">' + cells + '</div>';
     } catch (e) {
       app.className = "msg";
@@ -188,14 +186,6 @@
     }
   }
 
-  document.querySelectorAll(".toggle button").forEach(btn => btn.addEventListener("click", () => {
-    loc = btn.dataset.loc;
-    try { localStorage.setItem("wx-loc", loc); } catch (e) {}
-    setToggle();
-    load();
-  }));
-
-  setToggle();
   load();
   setInterval(load, 15 * 60 * 1000);
 </script>
